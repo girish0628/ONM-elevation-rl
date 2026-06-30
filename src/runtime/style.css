@@ -11,38 +11,52 @@
 }
 
 /* -----------------------------------------------------------------------
-   Portal overlay — rendered via createPortal into document.body so it
-   is never clipped by ExB's panel container and ignores any CSS transform
-   stacking context that ExB applies to the floating panel wrapper.
+   Portal overlay container — no background, no border.
+   Buttons float directly over the map with their own shadow.
    ----------------------------------------------------------------------- */
 .bhp-elev-overlay {
   position: fixed;
   z-index: 9999;
   left: 12px;
   bottom: 40px;
-  padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.78);
-  border-radius: 6px;
-  color: #fff;
   pointer-events: auto;
-  font-family: sans-serif;
-  font-size: 14px;
-  max-width: 360px;
+  /* no background, no padding, no border-radius — container is invisible */
 }
 
+/* Button row */
 .bhp-elev-overlay .btn-group {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
+/* Pill-shaped buttons with a drop-shadow so they're readable over any map */
 .bhp-elev-overlay .btn {
-  border: 0;
-  border-radius: 4px;
+  border: none;
+  border-radius: 9999px;
   cursor: pointer;
-  padding: 6px 14px;
+  padding: 7px 18px;
   font-weight: 600;
   font-size: 13px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.40),
+    0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.bhp-elev-overlay .btn:hover {
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.45),
+    0 2px 5px rgba(0, 0, 0, 0.30);
+  transform: translateY(-1px);
+}
+
+.bhp-elev-overlay .btn:active {
+  transform: translateY(0);
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .bhp-elev-overlay .btn.primary {
@@ -50,15 +64,66 @@
   color: #fff;
 }
 
+.bhp-elev-overlay .btn.primary:hover {
+  background: #006aaa;
+}
+
 .bhp-elev-overlay .btn.secondary {
-  background: #555;
+  background: #fff;
+  color: #333;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+.bhp-elev-overlay .btn.secondary:hover {
+  background: #f0f0f0;
+}
+
+/* -----------------------------------------------------------------------
+   Loading spinner shown while elevation is being fetched
+   ----------------------------------------------------------------------- */
+.bhp-elev-loading-text {
+  font-size: 13px;
+  font-weight: 600;
   color: #fff;
+  text-shadow:
+    0 0 4px rgba(0, 0, 0, 0.9),
+    0 1px 3px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+.bhp-elev-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
+  animation: bhp-spin 0.65s linear infinite;
+}
+
+@keyframes bhp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* -----------------------------------------------------------------------
+   Modal info overlay (config missing) — keeps a subtle dark pill style
+   so the multi-line message is readable over the map.
+   ----------------------------------------------------------------------- */
+.bhp-elev-overlay.bhp-elev-modal {
+  background: rgba(20, 20, 20, 0.82);
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: #fff;
+  font-size: 13px;
+  max-width: 340px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 /* -----------------------------------------------------------------------
    CSS :has() backup — minimises ExB's known floating-panel class names
-   when they contain our widget root.  :has() overrides stylesheet rules
-   (but NOT ExB inline styles — those are handled by JS minimiseExbPanel).
+   when they contain our widget root.
    ----------------------------------------------------------------------- */
 .float-layout-item:has(.bhp-elevation-rl),
 .widget-mover:has(.bhp-elevation-rl),
@@ -76,9 +141,7 @@
 }
 
 /* -----------------------------------------------------------------------
-   Setting panel — inline writingMode on every element is the primary fix;
-   these rules are a secondary defence for any element we cannot reach
-   via inline style (e.g. SettingRow's own rendered children).
+   Setting panel — writing-mode reset (primary fix is inline styles in JSX).
    ----------------------------------------------------------------------- */
 .bhp-elevation-rl-setting,
 .bhp-elevation-rl-setting * {

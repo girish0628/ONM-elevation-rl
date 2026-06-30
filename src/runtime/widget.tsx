@@ -91,6 +91,7 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
   const [selectedMapPoint, setSelectedMapPoint] = useState<__esri.Point>()
   const [showTypeSelector, setShowTypeSelector] = useState(false)
   const [clickPos, setClickPos] = useState<{ x: number; y: number } | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handles = useRef<__esri.Handles>(new Handles())
   const layerRef = useRef<__esri.GraphicsLayer>(new GraphicsLayer({ title: GraphicsLayerTitle, listMode: 'hide' }))
@@ -298,23 +299,34 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
   const onSelectAHD = async () => {
     if (!selectedMapPoint) return
 
-    setShowTypeSelector(false)
-    setClickPos(null)
-    const text = await queryElevation(selectedMapPoint, 1, 'AHD')
-    addTextGraphic(layerRef.current, selectedMapPoint, text)
+    setIsLoading(true)
+    try {
+      const text = await queryElevation(selectedMapPoint, 1, 'AHD')
+      addTextGraphic(layerRef.current, selectedMapPoint, text)
+    } finally {
+      setIsLoading(false)
+      setShowTypeSelector(false)
+      setClickPos(null)
+    }
   }
 
   const onSelectADPH = async () => {
     if (!selectedMapPoint) return
 
-    setShowTypeSelector(false)
-    setClickPos(null)
-    const text = await queryElevation(selectedMapPoint, 1, 'ADPH')
-    addTextGraphic(layerRef.current, selectedMapPoint, text)
+    setIsLoading(true)
+    try {
+      const text = await queryElevation(selectedMapPoint, 1, 'ADPH')
+      addTextGraphic(layerRef.current, selectedMapPoint, text)
+    } finally {
+      setIsLoading(false)
+      setShowTypeSelector(false)
+      setClickPos(null)
+    }
   }
 
   const onCancelTypeSelector = () => {
     setShowTypeSelector(false)
+    setIsLoading(false)
     setClickPos(null)
     setSelectedMapPoint(undefined)
     layerRef.current?.removeAll()
@@ -343,6 +355,7 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
     }
 
     setShowTypeSelector(false)
+    setIsLoading(false)
     setClickPos(null)
     setSelectedMapPoint(undefined)
   }
@@ -378,16 +391,23 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
     <>
       {showTypeSelector && (
         <div className="bhp-elev-overlay" style={typeSelectorStyle}>
-          <div className="btn-group">
-            <button className="btn primary" onClick={onSelectADPH}>ADPH</button>
-            <button className="btn primary" onClick={onSelectAHD}>AHD</button>
-            <button className="btn secondary" onClick={onCancelTypeSelector}>Cancel</button>
-          </div>
+          {isLoading ? (
+            <div className="btn-group">
+              <span className="bhp-elev-spinner" />
+              <span className="bhp-elev-loading-text">Fetching elevation…</span>
+            </div>
+          ) : (
+            <div className="btn-group">
+              <button className="btn primary" onClick={onSelectADPH}>ADPH</button>
+              <button className="btn primary" onClick={onSelectAHD}>AHD</button>
+              <button className="btn secondary" onClick={onCancelTypeSelector}>Cancel</button>
+            </div>
+          )}
         </div>
       )}
 
       {modalInfo && (
-        <div className="bhp-elev-overlay" style={{ maxWidth: modalInfo.maxWidth ?? 360 }}>
+        <div className="bhp-elev-overlay bhp-elev-modal" style={{ maxWidth: modalInfo.maxWidth ?? 360 }}>
           <strong>{modalInfo.title}</strong>
           <div>{modalInfo.message}</div>
           <div style={{ marginTop: 8 }}>
