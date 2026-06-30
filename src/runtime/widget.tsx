@@ -90,6 +90,7 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
   const [modalInfo, setModalInfo] = useState<MessageBoxInfo>()
   const [selectedMapPoint, setSelectedMapPoint] = useState<__esri.Point>()
   const [showTypeSelector, setShowTypeSelector] = useState(false)
+  const [clickPos, setClickPos] = useState<{ x: number; y: number } | null>(null)
 
   const handles = useRef<__esri.Handles>(new Handles())
   const layerRef = useRef<__esri.GraphicsLayer>(new GraphicsLayer({ title: GraphicsLayerTitle, listMode: 'hide' }))
@@ -269,6 +270,26 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
       addGraphic(layerRef.current, e.mapPoint)
       setSelectedMapPoint(e.mapPoint)
       setShowTypeSelector(true)
+
+      // Convert view-relative click coords to viewport coords so the overlay
+      // can be positioned near the click point.
+      // e.x / e.y are pixels from the top-left of the ArcGIS view container.
+      const rawContainer = viewRef.current?.container
+      const containerEl: HTMLElement | null = typeof rawContainer === 'string'
+        ? document.getElementById(rawContainer)
+        : (rawContainer as HTMLElement | null) ?? null
+      if (containerEl) {
+        const rect = containerEl.getBoundingClientRect()
+        const OFFSET = 18   // px gap between pin and panel
+        const PANEL_W = 220 // approximate panel width for right-edge clamping
+        const PANEL_H = 60  // approximate panel height for bottom-edge clamping
+        const vpX = rect.left + e.x
+        const vpY = rect.top + e.y
+        setClickPos({
+          x: Math.max(8, Math.min(vpX + OFFSET, window.innerWidth - PANEL_W - 8)),
+          y: Math.max(8, Math.min(vpY + OFFSET, window.innerHeight - PANEL_H - 8))
+        })
+      }
     })
 
     handles.current?.add(clickHandle)
@@ -278,6 +299,7 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
     if (!selectedMapPoint) return
 
     setShowTypeSelector(false)
+    setClickPos(null)
     const text = await queryElevation(selectedMapPoint, 1, 'AHD')
     addTextGraphic(layerRef.current, selectedMapPoint, text)
   }
@@ -286,12 +308,14 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
     if (!selectedMapPoint) return
 
     setShowTypeSelector(false)
+    setClickPos(null)
     const text = await queryElevation(selectedMapPoint, 1, 'ADPH')
     addTextGraphic(layerRef.current, selectedMapPoint, text)
   }
 
   const onCancelTypeSelector = () => {
     setShowTypeSelector(false)
+    setClickPos(null)
     setSelectedMapPoint(undefined)
     layerRef.current?.removeAll()
   }
@@ -319,6 +343,7 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
     }
 
     setShowTypeSelector(false)
+    setClickPos(null)
     setSelectedMapPoint(undefined)
   }
 
@@ -340,13 +365,19 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
     setModalInfo(undefined)
   }
 
+  // When a click position is available, place the panel near the click point
+  // (offset so it doesn't cover the pin).  bottom:'auto' resets the CSS default.
+  const typeSelectorStyle: React.CSSProperties = clickPos
+    ? { left: clickPos.x, top: clickPos.y, bottom: 'auto' }
+    : {}
+
   // Overlay panels are mounted via React portal to document.body so they are
   // never clipped by ExB's panel container and are not affected by any CSS
   // transform stacking context that ExB may apply to the panel wrapper.
   const overlays = (
     <>
       {showTypeSelector && (
-        <div className="bhp-elev-overlay">
+        <div className="bhp-elev-overlay" style={typeSelectorStyle}>
           <div className="btn-group">
             <button className="btn primary" onClick={onSelectADPH}>ADPH</button>
             <button className="btn primary" onClick={onSelectAHD}>AHD</button>
