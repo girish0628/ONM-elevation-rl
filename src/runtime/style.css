@@ -1,0 +1,56 @@
+/* replacement for WidgetContainer */
+.widget-container {
+  height: 100%;
+  width: 100%;
+  overflow: auto;
+  display: none;
+}
+
+/* halo effect */
+.bhp-elevation-rl {
+  color: #fff !important;
+  text-shadow:
+    0 0 2px #000,
+    0 0 4px #000,
+    1px 1px 2px #000,
+    -1px -1px 2px #000 !important;
+}
+
+.bhp-elevation-rl .elevation-panel {
+  position: absolute;
+  z-index: 9999;
+  left: 12px;
+  bottom: 12px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 6px;
+  color: #fff;
+}
+
+.bhp-elevation-rl .btn-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.bhp-elevation-rl .btn {
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 6px 12px;
+  font-weight: 600;
+}
+
+.bhp-elevation-rl .btn.primary {
+  background: #0079c1;
+  color: #fff;
+}
+
+.bhp-elevation-rl .btn.secondary {
+  background: #666;
+  color: #fff;
+}
+
+.bhp-elevation-rl-setting .w-100 {
+  width: 100%;
+}

@@ -1,0 +1,38 @@
+{
+  "name": "bhp-elevation-rl",
+  "label": "Elevation RL",
+  "type": "widget",
+  "version": "1.0.2",
+  "exbVersion": "1.18.0",
+  "author": "Geomatic",
+  "description": "This widget performs the Elevation RL workflow.",
+  "copyright": "",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "publishMessages": [],
+  "messageActions": [],
+  "defaultSize": {
+    "width": 0,
+    "height": 0,
+    "autoWidth": true,
+    "autoHeight": true
+  },
+  "properties": {
+    "coverLayoutBackground": true,
+    "defaultOffPanel": true,
+    "hasSettingPage": true,
+    "needActiveState": true
+  },
+  "dependency": [
+    "jimu-arcgis"
+  ],
+  "settingDependency": [
+    "jimu-arcgis"
+  ],
+  "excludeDataActions": [],
+  "translatedLocales": [
+    "en"
+  ],
+  "i18nMessages": {
+    "default": "./translations/default.ts"
+  }
+}
