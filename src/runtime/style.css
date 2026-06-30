@@ -1,56 +1,87 @@
-/* replacement for WidgetContainer */
-.widget-container {
-  height: 100%;
-  width: 100%;
-  overflow: auto;
-  display: none;
-}
-
-/* halo effect */
+/* -----------------------------------------------------------------------
+   Widget root — kept at 1×1 so ExB's auto-sized panel has no content
+   to measure. The real UI is in .bhp-elev-overlay portaled to <body>.
+   ----------------------------------------------------------------------- */
 .bhp-elevation-rl {
-  color: #fff !important;
-  text-shadow:
-    0 0 2px #000,
-    0 0 4px #000,
-    1px 1px 2px #000,
-    -1px -1px 2px #000 !important;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+  position: relative;
 }
 
-.bhp-elevation-rl .elevation-panel {
-  position: absolute;
+/* -----------------------------------------------------------------------
+   Portal overlay — rendered via createPortal into document.body so it
+   is never clipped by ExB's panel container and ignores any CSS transform
+   stacking context that ExB applies to the floating panel wrapper.
+   ----------------------------------------------------------------------- */
+.bhp-elev-overlay {
+  position: fixed;
   z-index: 9999;
   left: 12px;
-  bottom: 12px;
-  padding: 10px;
-  background: rgba(0, 0, 0, 0.75);
+  bottom: 40px;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.78);
   border-radius: 6px;
   color: #fff;
+  pointer-events: auto;
+  font-family: sans-serif;
+  font-size: 14px;
+  max-width: 360px;
 }
 
-.bhp-elevation-rl .btn-group {
+.bhp-elev-overlay .btn-group {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-.bhp-elevation-rl .btn {
+.bhp-elev-overlay .btn {
   border: 0;
   border-radius: 4px;
   cursor: pointer;
-  padding: 6px 12px;
+  padding: 6px 14px;
   font-weight: 600;
+  font-size: 13px;
 }
 
-.bhp-elevation-rl .btn.primary {
+.bhp-elev-overlay .btn.primary {
   background: #0079c1;
   color: #fff;
 }
 
-.bhp-elevation-rl .btn.secondary {
-  background: #666;
+.bhp-elev-overlay .btn.secondary {
+  background: #555;
   color: #fff;
 }
 
-.bhp-elevation-rl-setting .w-100 {
-  width: 100%;
+/* -----------------------------------------------------------------------
+   CSS :has() backup — minimises ExB's known floating-panel class names
+   when they contain our widget root.  :has() overrides stylesheet rules
+   (but NOT ExB inline styles — those are handled by JS minimiseExbPanel).
+   ----------------------------------------------------------------------- */
+.float-layout-item:has(.bhp-elevation-rl),
+.widget-mover:has(.bhp-elevation-rl),
+.jimu-widget-placeholder:has(.bhp-elevation-rl),
+.off-panel-widget:has(.bhp-elevation-rl) {
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* -----------------------------------------------------------------------
+   Setting panel — inline writingMode on every element is the primary fix;
+   these rules are a secondary defence for any element we cannot reach
+   via inline style (e.g. SettingRow's own rendered children).
+   ----------------------------------------------------------------------- */
+.bhp-elevation-rl-setting,
+.bhp-elevation-rl-setting * {
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
 }

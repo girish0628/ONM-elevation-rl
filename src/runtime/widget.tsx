@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { AllWidgetProps, AppMode, FormattedMessage, getAppStore, IMState, WidgetState } from 'jimu-core'
+import { createPortal } from 'react-dom'
+import { AllWidgetProps, AppMode, getAppStore, IMState, WidgetState } from 'jimu-core'
 import { JimuMapView, JimuMapViewComponent } from 'jimu-arcgis'
 import './style.css'
 import { IMConfig } from '../config'
@@ -17,6 +18,74 @@ import pictureSymbol from './assets/esriRedPin_20x33.png'
 
 const GraphicsLayerTitle = 'Elevation Currency Layer'
 
+// Shrink ExB's floating panel container to 0×0 with overflow:visible so
+// the chrome (title bar) is invisible but our portal-mounted overlays remain.
+// Uses !important via setProperty to override ExB's inline size styles.
+const minimiseExbPanel = (widgetRoot: HTMLElement) => {
+  const applyTo = (el: HTMLElement) => {
+    el.style.setProperty('width', '0', 'important')
+    el.style.setProperty('height', '0', 'important')
+    el.style.setProperty('min-width', '0', 'important')
+    el.style.setProperty('min-height', '0', 'important')
+    el.style.setProperty('max-width', 'none', 'important')
+    el.style.setProperty('max-height', 'none', 'important')
+    el.style.setProperty('overflow', 'visible', 'important')
+    el.style.setProperty('background', 'transparent', 'important')
+    el.style.setProperty('border', 'none', 'important')
+    el.style.setProperty('box-shadow', 'none', 'important')
+    el.style.setProperty('padding', '0', 'important')
+
+    // Hide chrome siblings (title bar, resize handle, etc.)
+    Array.from(el.children).forEach((child) => {
+      const childEl = child as HTMLElement
+      if (!childEl.contains(widgetRoot)) {
+        childEl.style.setProperty('display', 'none', 'important')
+      }
+    })
+  }
+
+  // Walk up from the widget root looking for ExB's floating panel container.
+  // ExB 1.18 uses classes like: float-layout-item, widget-mover, off-panel-widget.
+  let el: HTMLElement | null = widgetRoot.parentElement
+  let depth = 0
+  let found = false
+
+  while (el && el !== document.body && depth < 12) {
+    const cls = (el.className ?? '') as string
+    if (
+      cls.includes('float-layout-item') ||
+      cls.includes('widget-mover') ||
+      cls.includes('off-panel') ||
+      cls.includes('jimu-widget-placeholder')
+    ) {
+      applyTo(el)
+      found = true
+      break
+    }
+    el = el.parentElement
+    depth++
+  }
+
+  // Fallback: if no class match, look for first absolutely-positioned ancestor
+  // with a non-transparent background (i.e. a visible panel container).
+  if (!found) {
+    el = widgetRoot.parentElement
+    depth = 0
+    while (el && el !== document.body && depth < 6) {
+      const computed = window.getComputedStyle(el)
+      const pos = computed.position
+      const bg = computed.backgroundColor
+      const hasBg = bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent'
+      if ((pos === 'absolute' || pos === 'fixed') && hasBg) {
+        applyTo(el)
+        break
+      }
+      el = el.parentElement
+      depth++
+    }
+  }
+}
+
 const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactElement => {
   const [modalInfo, setModalInfo] = useState<MessageBoxInfo>()
   const [selectedMapPoint, setSelectedMapPoint] = useState<__esri.Point>()
@@ -26,7 +95,9 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
   const layerRef = useRef<__esri.GraphicsLayer>(new GraphicsLayer({ title: GraphicsLayerTitle, listMode: 'hide' }))
   const viewRef = useRef<__esri.MapView | __esri.SceneView>()
   const attachedRef = useRef(false)
+  const rootRef = useRef<HTMLDivElement>(null)
 
+  // Show config warning once on mount (design mode excluded)
   useEffect(() => {
     if (getAppStore().getState().appRuntimeInfo.appMode === AppMode.Design) return
 
@@ -36,12 +107,33 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
         message: defaultI18nMessages.imageServiceUrlMissingMessage
       })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Minimise ExB's floating panel container so only our portal overlay is visible.
+  // Runs once on mount; uses !important to override ExB's stored inline sizes.
+  useEffect(() => {
+    if (rootRef.current) {
+      minimiseExbPanel(rootRef.current)
+    }
+  }, [])
+
+  // React to widget open/close — never call state setters directly in render body
+  useEffect(() => {
+    if (props.state === WidgetState.Opened) {
+      onOpenWidget()
+    } else if (props.state === WidgetState.Closed) {
+      onCloseWidget()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.state])
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       onCloseWidget()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const showMessage = (title: string, message: string, maxWidth?: number) => {
@@ -231,15 +323,16 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
   }
 
   const onActiveViewChange = (jmv: JimuMapView) => {
-    if (jmv) {
-      viewRef.current = jmv.view.type === '3d'
-        ? jmv.view as __esri.SceneView
-        : jmv.view as __esri.MapView
+    if (!jmv) return
 
-      const widgetRuntimeInfo = getAppStore().getState().widgetsRuntimeInfo?.[props.id]?.state
-      if (widgetRuntimeInfo === WidgetState.Opened) {
-        onOpenWidget()
-      }
+    viewRef.current = jmv.view.type === '3d'
+      ? jmv.view as __esri.SceneView
+      : jmv.view as __esri.MapView
+
+    // If the widget was already opened before the view loaded, attach handlers now
+    const runtimeState = getAppStore().getState().widgetsRuntimeInfo?.[props.id]?.state
+    if (runtimeState === WidgetState.Opened) {
+      onOpenWidget()
     }
   }
 
@@ -247,26 +340,13 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
     setModalInfo(undefined)
   }
 
-  const widgetRuntimeInfo = getAppStore().getState().widgetsRuntimeInfo?.[props.id]?.state
-  if (widgetRuntimeInfo === WidgetState.Opened) {
-    onOpenWidget()
-  } else if (widgetRuntimeInfo === WidgetState.Closed) {
-    onCloseWidget()
-  }
-
-  return (
-    <div className="bhp-elevation-rl">
-      {props.config?.mapWidgetId && (
-        <JimuMapViewComponent
-          useMapWidgetId={props.config.mapWidgetId}
-          onActiveViewChange={onActiveViewChange}
-        />
-      )}
-
-      <FormattedMessage id="displayMessage" defaultMessage={defaultI18nMessages.displayMessage} />
-
+  // Overlay panels are mounted via React portal to document.body so they are
+  // never clipped by ExB's panel container and are not affected by any CSS
+  // transform stacking context that ExB may apply to the panel wrapper.
+  const overlays = (
+    <>
       {showTypeSelector && (
-        <div className="elevation-panel">
+        <div className="bhp-elev-overlay">
           <div className="btn-group">
             <button className="btn primary" onClick={onSelectADPH}>ADPH</button>
             <button className="btn primary" onClick={onSelectAHD}>AHD</button>
@@ -276,7 +356,7 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
       )}
 
       {modalInfo && (
-        <div className="elevation-panel" style={{ maxWidth: modalInfo.maxWidth ?? 360 }}>
+        <div className="bhp-elev-overlay" style={{ maxWidth: modalInfo.maxWidth ?? 360 }}>
           <strong>{modalInfo.title}</strong>
           <div>{modalInfo.message}</div>
           <div style={{ marginTop: 8 }}>
@@ -284,6 +364,20 @@ const Widget = (props: AllWidgetProps<IMConfig> & WidgetProps): React.ReactEleme
           </div>
         </div>
       )}
+    </>
+  )
+
+  return (
+    <div ref={rootRef} className="bhp-elevation-rl">
+      {props.config?.mapWidgetId && (
+        <JimuMapViewComponent
+          useMapWidgetId={props.config.mapWidgetId}
+          onActiveViewChange={onActiveViewChange}
+        />
+      )}
+
+      {/* Portal to body: escapes ExB's panel sizing, clipping, and transform context */}
+      {typeof document !== 'undefined' && createPortal(overlays, document.body)}
     </div>
   )
 }

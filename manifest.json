@@ -13,8 +13,8 @@
   "defaultSize": {
     "width": 0,
     "height": 0,
-    "autoWidth": true,
-    "autoHeight": true
+    "autoWidth": false,
+    "autoHeight": false
   },
   "properties": {
     "coverLayoutBackground": true,
